@@ -178,6 +178,9 @@ SQLite currently has no async driver support. An async SQLite client is in devel
 
 ### Query Builder Only
 
+>This package is currently in **beta**. Before installing, ensure your `composer.json`
+allows beta releases:
+
 If you only need the query builder without schema management:
 
 ```bash
