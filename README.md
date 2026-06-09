@@ -72,11 +72,27 @@ The official documentation for the Hibla PHP database ecosystem: a fully asynchr
 - [License](#license)
 ---
 
+Here is the updated, highly engaging **Overview** section for your main README, written strictly in pure Markdown (no HTML). 
+
+It is designed to immediately sell the practical value of the library by showing how it solves the traditional "async vs. convenience" compromise in PHP:
+
+***
+
 ## Overview
 
-Hibla Database is an asynchronous PHP database layer designed for long-running processes, high-concurrency workloads, and fiber-based PHP applications. It is built on the Hibla async runtime and provides a fluent, immutable query builder with an optional schema management layer.
+Hibla Database is an asynchronous, framework-agnostic database layer for modern PHP 8.4+. It is built specifically for long-running, high-concurrency environments (such as Swoole, RoadRunner, or Workerman) and standalone microframeworks (like Slim or Leaf).
 
-Every execution method returns a `PromiseInterface` and must be awaited using `await()` or chain it with `then()`.  This is not a synchronous ORM; it is a high-level, non-blocking database abstraction layer designed to be composed into whatever architecture your application needs.
+This is not a heavy, blocking ORM. It is a highly optimized, non-blocking database lifecycle suite (Query Builder + Schema CLI) designed to be composed into whatever architecture your application needs.
+
+### Why Use this Library?
+
+Historically, PHP developers building high-concurrency applications had to make a painful compromise: either write raw, low-level SQL strings over raw async socket drivers (excellent performance, terrible developer experience), or pull in a bloated full-stack monolith just to get decent database and migration tooling. 
+
+Hibla eliminates this compromise completely by delivering three core pillars:
+
+*   **True Asynchronous Power:** By operating directly over non-blocking socket streams instead of blocking PDO, Hibla releases the Fiber event loop on every query. While your database is executing a query, your server continues to process other concurrent requests, unlocking massive throughput and concurrency.
+*   **Familiar, World-Class Developer Experience (DX):** Hibla maps the asynchronous paradigm directly onto the highly beloved, expressive fluent syntax of Laravel's query builder and schema blueprints. If you know Laravel, there is zero learning curve so you write queries the exact same way and simply wrapping your executions in `await()`.
+*   **Zero-Friction Setup:** Bootstrapping a standalone database in a microframework or custom app is traditionally a tedious process. Hibla provides a single-command initializer (`init`) that auto-scaffolds your configurations, supports instant directory auto-discovery, and utilizes lightweight anonymous classes so you **never have to modify your `composer.json` namespaces** to run migrations or seeders.
 
 ---
 
