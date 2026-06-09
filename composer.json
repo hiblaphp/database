@@ -1,0 +1,19 @@
+{
+    "name": "hiblaphp/database",
+    "description": "The complete asynchronous, framework-agnostic database layer toolkit for the Hibla Ecosystem (Query Builder, Migrations, and Seeders)",
+    "authors": [
+        {
+            "name": "Reymart A. Calicdan",
+            "email": "reymart.calicdan06@gmail.com"
+        }
+    ],
+    "type": "metapackage",
+    "license": "MIT",
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "require": {
+        "php": "^8.4",
+        "hiblaphp/query-builder": "dev-main",
+        "hiblaphp/schema-manager": "dev-main"
+    }
+}
