@@ -1271,11 +1271,23 @@ $affected = await(DB::table('users')->insert([
     'email' => 'alice@example.com',
 ]));
 
-// Single row — returns the new auto-increment ID
+// Insert Ignore — skip inserting if a unique constraint is violated (returns 0)
+$affected = await(DB::table('users')->insertIgnore([
+    'name'  => 'Alice Clone',
+    'email' => 'alice@example.com',
+]));
+
+// Single row — inserts data and returns the new auto-increment ID.
+// By default, this method retrieves and returns the value of the 'id' column.
 $id = await(DB::table('users')->insertGetId([
     'name'  => 'Bob',
     'email' => 'bob@example.com',
 ]));
+
+// If your database table uses a custom primary key name (particularly important 
+// for PostgreSQL sequences), you can override the default 'id' by passing your 
+// custom column name as the second parameter:
+$adminId = await(DB::table('admins')->insertGetId($adminData, 'admin_id'));
 
 // PostgreSQL requires the sequence/primary key name when it differs from 'id'
 $id = await(DB::table('admins')->insertGetId($data, 'admin_id'));
@@ -1285,6 +1297,11 @@ $affected = await(DB::table('tags')->insertBatch([
     ['name' => 'php',        'slug' => 'php'],
     ['name' => 'javascript', 'slug' => 'javascript'],
     ['name' => 'python',     'slug' => 'python'],
+]));
+
+$affected = await(DB::table('tags')->insertIgnoreBatch([
+    ['name' => 'php',        'slug' => 'php'],        // Skipped
+    ['name' => 'python',     'slug' => 'python'],     // Inserted
 ]));
 
 // Upsert — insert or update on conflict (single row)
