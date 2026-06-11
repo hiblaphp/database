@@ -9,11 +9,11 @@
     ],
     "type": "metapackage",
     "license": "MIT",
-    "minimum-stability": "dev",
+    "minimum-stability": "beta",
     "prefer-stable": true,
     "require": {
         "php": "^8.4",
-        "hiblaphp/query-builder": "dev-main",
-        "hiblaphp/schema-manager": "dev-main"
+        "hiblaphp/query-builder": "^1.0",
+        "hiblaphp/schema-manager": "^1.0"
     }
 }
