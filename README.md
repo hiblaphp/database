@@ -72,12 +72,6 @@ The official documentation for the Hibla PHP database ecosystem: a fully asynchr
 - [License](#license)
 ---
 
-Here is the updated, highly engaging **Overview** section for your main README, written strictly in pure Markdown (no HTML). 
-
-It is designed to immediately sell the practical value of the library by showing how it solves the traditional "async vs. convenience" compromise in PHP:
-
-***
-
 ## Overview
 
 Hibla Database is an asynchronous, framework-agnostic database layer for modern PHP 8.4+. It is built specifically for long-running, high-concurrency environments (such as Swoole, RoadRunner, or Workerman) and standalone microframeworks (like Slim or Leaf).
