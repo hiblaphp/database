@@ -69,7 +69,9 @@ The official documentation for the Hibla PHP database ecosystem: a fully asynchr
     - [Running Seeders](#running-seeders)
   - [Multiple Connections](#multiple-connections)
   - [Safe Mode](#safe-mode)
+- [Inspiration](#inspiration)
 - [License](#license)
+
 ---
 
 ## Overview
@@ -84,27 +86,18 @@ Historically, PHP developers building high-concurrency applications had to make 
 
 Hibla eliminates this compromise completely by delivering three core pillars:
 
-*   **True Asynchronous Power:** By operating directly over non-blocking socket streams instead of blocking PDO, Hibla releases the Fiber event loop on every query. While your database is executing a query, your server continues to process other concurrent requests, unlocking massive throughput and concurrency.
-*   **Familiar, World-Class Developer Experience (DX):** Hibla maps the asynchronous paradigm directly onto the highly beloved, expressive fluent syntax of Laravel's query builder and schema blueprints. If you know Laravel, there is zero learning curve so you write queries the exact same way and simply wrapping your executions in `await()`.
-*   **Zero-Friction Setup:** Bootstrapping a standalone database in a microframework or custom app is traditionally a tedious process. Hibla provides a single-command initializer (`init`) that auto-scaffolds your configurations, supports instant directory auto-discovery, and utilizes lightweight anonymous classes so you **never have to modify your `composer.json` namespaces** to run migrations or seeders.
+*   **True Asynchronous Power:** By operating directly over non-blocking socket streams and process-isolated worker pools instead of blocking PDO, Hibla releases the Fiber event loop on every query. While your database is executing a query, your server continues to process other concurrent requests, unlocking massive throughput and concurrency.
+*   **Familiar, World-Class Developer Experience (DX):** Hibla maps the asynchronous paradigm directly onto the highly beloved, expressive fluent syntax of Laravel's query builder and schema blueprints. If you know Laravel, there is zero learning curve so you write queries the exact same way and simply wrap your executions in `await()`.
+*   **Zero-Friction Setup:** Bootstrapping a standalone database in a microframework or custom app is traditionally a tedious process. Hibla provides a single-command initializer (`init`) that auto-scaffolds your configurations, defaults to a zero-config SQLite database, supports instant directory auto-discovery, and utilizes lightweight anonymous classes so you **never have to modify your `composer.json` namespaces** to run migrations or seeders.
 
 ---
 
 ## Quick Start
 
+> **Zero-Config Default:** Hibla defaults to an in-memory SQLite database out of the box, meaning you can install the package and start querying immediately without configuring a database server!
+
 ```bash
 composer require hiblaphp/database
-```
-
-Add your credentials to a `.env` file:
-
-```dotenv
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=myapp
-DB_USERNAME=root
-DB_PASSWORD=secret
 ```
 
 Copy the default config to your project root:
@@ -121,15 +114,38 @@ Then run your first query:
 require 'vendor/autoload.php';
 
 use Hibla\QueryBuilder\DB;
+use Hibla\SchemaManager\Schema\Blueprint;
 use function Hibla\await;
 
-$users = await(DB::table('users')->where('active', true)->get());
+// 1. Setup your schema asynchronously
+await(DB::rawExecute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT, active INTEGER)"));
+
+// 2. Insert data
+await(DB::table('users')->insertBatch([
+    ['name' => 'Alice', 'active' => 1],
+    ['name' => 'Bob', 'active' => 0]
+]));
+
+// 3. Fetch data fluently
+$users = await(DB::table('users')->where('active', 1)->get());
 
 foreach ($users as $user) {
-    echo $user->name . PHP_EOL;
+    echo $user->name . PHP_EOL; // Outputs: Alice
 }
 
+// 4. Close the pool when shutting down
 DB::close();
+```
+
+If you want to use MySQL or PostgreSQL, simply add your credentials to a `.env` file:
+
+```dotenv
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=myapp
+DB_USERNAME=root
+DB_PASSWORD=secret
 ```
 
 The sections below cover configuration, the full query builder API, and the schema manager in detail.
@@ -152,7 +168,7 @@ The sections below cover configuration, the full query builder API, and the sche
 
 - PHP 8.4 or higher
 - Fiber support (PHP 8.1+, enabled by default in 8.4)
-- MySQL 8.0+ or PostgreSQL 15+
+- SQLite 3+, MySQL 8.0+, or PostgreSQL 15+
 
 ---
 
@@ -160,11 +176,9 @@ The sections below cover configuration, the full query builder API, and the sche
 
 | Driver | Status | Notes |
 | :--- | :---: | :--- |
-| MySQL / MariaDB | ✅ | Full support including locking, JSON, CTEs |
-| PostgreSQL | ✅ | Full support including JSONB, vector columns, schema dump |
-| SQLite | ⚠️ | No async support yet; schema manager has limited ALTER support |
-
-SQLite currently has no async driver support. An async SQLite client is in development and will be integrated into the query builder once ready, bringing SQLite to full parity with the MySQL and PostgreSQL drivers.
+| SQLite | ✅ | Default zero-config engine. Fast, non-blocking file access via an async worker daemon pool. Schema Manager fully supports it (including atomic `ALTER TABLE` workarounds). |
+| MySQL / MariaDB | ✅ | Full async support including locking, JSON, CTEs, and schema dumping. |
+| PostgreSQL | ✅ | Full async support including JSONB, vector columns (`pgvector`), and schema dumping. |
 
 ---
 
@@ -172,8 +186,7 @@ SQLite currently has no async driver support. An async SQLite client is in devel
 
 ### Query Builder Only
 
->This package is currently in **beta**. Before installing, ensure your `composer.json`
-allows beta releases:
+>This package is currently in **beta**. Before installing, ensure your `composer.json` allows beta releases:
 
 If you only need the query builder without schema management:
 
@@ -223,7 +236,7 @@ return [
     | Default Connection
     |--------------------------------------------------------------------------
     */
-    'default' => env('DB_CONNECTION', 'mysql'),
+    'default' => env('DB_CONNECTION', 'sqlite'),
 
     /*
     |--------------------------------------------------------------------------
@@ -231,6 +244,15 @@ return [
     |--------------------------------------------------------------------------
     */
     'connections' => [
+        'sqlite' => [
+            'driver'          => 'sqlite',
+            'database'        => env('DB_DATABASE', ':memory:'),
+            'foreign_keys'    => true,
+            'journal_mode'    => 'WAL',
+            'max_connections' => env('DB_MAX_CONNECTIONS', 5, convertNumeric: true),
+            'min_connections' => env('DB_MIN_CONNECTIONS', 0, convertNumeric: true),
+        ],
+
         'mysql' => [
             'driver'   => 'mysql',
             'host'     => env('DB_HOST', '127.0.0.1'),
@@ -240,12 +262,10 @@ return [
             'password' => env('DB_PASSWORD', ''),
             'charset'  => 'utf8mb4',
 
-            // Connection pool
             'max_connections'  => env('DB_MAX_CONNECTIONS', 10, convertNumeric: true),
             'min_connections'  => env('DB_MIN_CONNECTIONS', 0,  convertNumeric: true),
             'idle_timeout'     => 60,
             'max_lifetime'     => 3600,
-            'acquire_timeout'  => 10.0,
         ],
 
         'pgsql' => [
@@ -271,9 +291,6 @@ return [
     |
     | default_template        — template used by paginate()
     | default_cursor_template — template used by cursorPaginate()
-    |
-    | Available built-in names: tailwind, bootstrap, simple,
-    |                            cursor-tailwind, cursor-bootstrap, cursor-simple
     */
     'pagination' => [
         'templates_path'          => null,
@@ -335,7 +352,6 @@ require 'vendor/autoload.php';
 
 use Hibla\QueryBuilder\DB;
 use function Hibla\await;
-use function Hibla\run;
 
 
 $users = await(DB::table('users')->where('active', true)->get());
@@ -1681,7 +1697,7 @@ Check the current config resolution status at any time:
 
 For custom config locations, see [Custom Config Locations](#custom-config-locations).
 
-### Custom Entry Point
+### Custom CLI Entry Point
 
 By default, all CLI commands are run through `./vendor/bin/hibla-db`. If you prefer a shorter command or a project-specific name, you can create your own entry point — a plain file with no extension placed in your project root.
 
@@ -1772,6 +1788,8 @@ All commands that touch the database accept `--connection=<name>` to target a sp
 
 ### Migrations
 
+**Note on SQLite:** SQLite lacks native support for dropping columns or foreign keys. Hibla's Schema Manager handles this automatically by performing a safe, atomic table-recreation within a deferred-foreign-key transaction, allowing you to use `dropColumn`, `renameColumn`, and `dropForeign` seamlessly just like you would on MySQL or PostgreSQL.
+
 #### Creating Migration Files
 
 The migration name is used to auto-detect the operation (`create_*_table`, `add_*_to_*`, `drop_*`):
@@ -1810,8 +1828,8 @@ Migrations return an anonymous class extending `Migration`. All schema methods r
 ```php
 <?php
 
-use Hibla\Migrations\Schema\Blueprint;
-use Hibla\Migrations\Schema\Migration;
+use Hibla\SchemaManager\Schema\Blueprint;
+use Hibla\SchemaManager\Schema\Migration;
 use function Hibla\await;
 
 return new class extends Migration
@@ -2146,7 +2164,7 @@ Seeders return an anonymous class extending `Seeder`. Use `await()` for all data
 ```php
 <?php
 
-use Hibla\Migrations\Schema\Seeder;
+use Hibla\SchemaManager\Schema\Seeder;
 use function Hibla\await;
 
 return new class extends Seeder
@@ -2172,7 +2190,7 @@ You can call other seeders from a root seeder (like `DatabaseSeeder.php`) using 
 ```php
 <?php
 
-use Hibla\Migrations\Schema\Seeder;
+use Hibla\SchemaManager\Schema\Seeder;
 use function Hibla\await;
 
 return new class extends Seeder
@@ -2296,10 +2314,6 @@ With safe mode enabled:
 
 > **NOTE: `--force` does NOT override Safe Mode for schema commands.** 
 > If `DB_SAFE_MODE=true` is set, passing the `--force` flag to `migrate:fresh`, `reset`, `refresh`, or `rollback` **will not work**. The command will still immediately abort. This is a deliberate design choice to prevent automated CI/CD pipelines or sleepy developers from accidentally wiping a production database. The only command where `--force` bypasses Safe Mode is `db:seed`.
-
----
-
-Here is the **Inspiration** section, written to be professional, appreciative, and perfectly positioned to go right before your **License** section:
 
 ---
 
