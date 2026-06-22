@@ -28,6 +28,7 @@ The official documentation for the Hibla PHP database ecosystem: a fully asynchr
     - [Constructor Injection](#constructor-injection)
     - [Registering with a DI Container](#registering-with-a-di-container)
 - [Query Builder](#query-builder)
+  - [Standalone Instantiation](#standalone-instantiation)
   - [Reading Data](#reading-data)
     - [Fetching Data](#fetching-data)
     - [Selecting Columns](#selecting-columns)
@@ -133,7 +134,7 @@ foreach ($users as $user) {
     echo $user->name . PHP_EOL; // Outputs: Alice
 }
 
-// 4. Close the pool when shutting down
+// 4. Close the pool when shutting down, Not really required unless you want explicit control over the pool lifecycle
 DB::close();
 ```
 
@@ -409,14 +410,13 @@ Calling `close()` or `closeAsync()` is not strictly required. If you do not call
 
 #### Testing with setSqlClient
 
-`DB::setSqlClient()` is the intended escape hatch for injecting a mock or in-memory client without touching any config file. It registers the client as the default connection and sets it as the active default:
+`DB::setSqlClient()` is the intended escape hatch for injecting a mock or in-memory client without touching any config file. It registers the client as the default connection and sets it as the active default. Since the builder infers the dialect directly from the client, you do not need to specify the driver manually:
 
 ```php
 use Hibla\QueryBuilder\DB;
-use Hibla\QueryBuilder\Enums\DatabaseDriver;
 
-// Inject a mock client before the test runs
-DB::setSqlClient($mockSqlClient, DatabaseDriver::Mysql);
+// Inject a mock client before the test runs (Dialect is inferred automatically)
+DB::setSqlClient($mockSqlClient);
 
 // All DB::table() calls now run against the mock
 $user = await(DB::table('users')->find(1));
@@ -665,6 +665,23 @@ All query builder methods return a new immutable instance and calling a method n
 > ```
 >
 > The `toArray()` / `toObject()` setting is scoped to the query instance it is called on. It does not affect other queries built from the same base or any global state.
+
+### Standalone Instantiation
+
+While the `DB` facade and DI interfaces (`DatabaseConnectionInterface`) are the recommended ways to build queries, you can also instantiate the `QueryBuilder` entirely on its own. The builder automatically infers the correct SQL dialect directly from the injected client.
+
+```php
+use Hibla\QueryBuilder\QueryBuilder;
+use function Hibla\await;
+
+// $client can be any instance of SqlClientInterface or TransactionInterface 
+$client = new SqlClient(["database" => "test.sqlite"]);
+$builder = new QueryBuilder($client);
+
+$users = await($builder->from('users')->where('active', true)->get());
+```
+
+> Note: You can bind this in a QueryBuilderInterface in DI container integrations.
 
 ---
 
