@@ -1183,6 +1183,9 @@ $paginator->url(3);              // URL for a specific page
 $paginator->nextPageUrl();       // URL for the next page, or null
 $paginator->previousPageUrl();   // URL for the previous page, or null
 $paginator->getUrlRange(1, 5);   // [1 => '...', 2 => '...', ...]
+$paginator->appends('sort', 'asc'); // Retains additional query strings
+$paginator->withQueryString();   // Retains all current $_GET query strings
+$paginator->fragment('hash');    // Appends a #hash fragment to the end of URLs
 $paginator->render();            // render HTML pagination links
 $paginator->render('bootstrap'); // render with a specific template
 $paginator->links();             // alias for render()
@@ -1221,11 +1224,42 @@ $paginator = await(
 
 ```php
 $paginator->nextPageUrl();               // URL with ?cursor=... appended, or null
+$paginator->appends('sort', 'asc');      // Retains additional query strings
+$paginator->withQueryString();           // Retains all current $_GET query strings
+$paginator->fragment('hash');            // Appends a #hash fragment to the end of URLs
 $paginator->render();                    // render HTML next-page link
 $paginator->render('cursor-bootstrap');
 $paginator->links();                     // alias for render()
 $paginator->toArray();
 $paginator->toJson();
+```
+
+#### Appending Query Strings & Fragments
+
+By default, pagination links only include the `page` or `cursor` parameters. To retain the current request's query string (e.g., search filters, sort directions) or append custom parameters and URL fragments, you can chain the following methods onto any paginator instance.
+
+> **Immutability:** Just like the query builder, paginator modifiers return a **cloned instance**. The original paginator state is never mutated.
+
+```php
+// Automatically append all current $_GET parameters (excluding 'page' and 'cursor')
+$users = await(DB::table('users')->paginate(15))->withQueryString();
+
+// Append specific custom parameters
+$users = await(DB::table('users')->paginate(15))
+    ->appends('sort', 'desc')
+    ->appends(['filter' => 'active']);
+
+// Append a URL fragment (hash) for auto-scrolling
+$users = await(DB::table('users')->paginate(15))->fragment('results');
+
+// Chain them all together flawlessly
+$paginator = await(DB::table('users')->cursorPaginate(20, 'id'))
+    ->withQueryString()
+    ->appends(['context' => 'admin'])
+    ->fragment('user-table');
+
+echo $paginator->nextPageUrl(); 
+// Output: http://localhost/users?search=dev&context=admin&cursor=eyJ...#user-table
 ```
 
 #### Pagination Templates
